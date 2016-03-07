@@ -6,6 +6,9 @@ using namespace std;
 
 class StoragePool;
 
+void* acquire(STORAGEPOOL* pool, size_t size);
+void reclaim(void* ptr);
+
 void* my_malloc(size_t size, StoragePool* pool)
 {
 	cout << " my_malloc in " << pool->name << endl;
@@ -117,6 +120,18 @@ private:
 
 
 
+inline void* acquire(STORAGEPOOL* pool, size_t size)
+{
+	return pool->acquire(size);
+}
+
+void reclaim(void* ptr)
+{
+	BuddyNode* node = ((BuddyNode*)ptr) - 1; //前一位保存伙伴节点的指针，若溢出则指针失效
+	STORAGEPOOL* pool = node->pool;
+	cout << " free in " << pool->name << endl;
+	pool->reclaim(node);
+}
 
 
 
