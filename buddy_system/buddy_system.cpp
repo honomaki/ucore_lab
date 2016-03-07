@@ -31,7 +31,7 @@ int main(int argv, char** argc)
 
 
 	int* var1 = my_malloc(sizeof(int), &pool_1);
-	double* var2 = my_free(sizeof(double), &pool_2);
+	double* var2 = my_malloc(sizeof(double), &pool_2);
 
 	my_free(var1);
 	my_free(var2);
