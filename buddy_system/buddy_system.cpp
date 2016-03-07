@@ -6,7 +6,7 @@ using namespace std;
 
 class StoragePool;
 
-void* acquire(STORAGEPOOL* pool, size_t size);
+void* acquire(StoragePool* pool, size_t size);
 void reclaim(void* ptr);
 
 void* my_malloc(size_t size, StoragePool* pool)
