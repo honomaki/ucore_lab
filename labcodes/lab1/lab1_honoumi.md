@@ -5,7 +5,7 @@
 ##练习1：理解通过make生成执行文件的过程
 
 
-1.操作系统镜像文件ucore.img是如何一步一步生成的？
+####1.操作系统镜像文件ucore.img是如何一步一步生成的？
 	
 	moocos-> make V=
 	+ cc kern/init/init.c
@@ -92,9 +92,7 @@
 
 生成 ucore.img
 <br>
-<br>
-<br>
-2.一个被系统认为是符合规范的硬盘主引导扇区的特征是什么？
+####2.一个被系统认为是符合规范的硬盘主引导扇区的特征是什么？
 
     buf[510] = 0x55;
     buf[511] = 0xAA;
@@ -111,7 +109,7 @@
 
 ##练习2：使用qemu执行并调试lab1中的软件
 
-1.从CPU加电后执行的第一条指令开始，单步跟踪BIOS的执行。
+####1.从CPU加电后执行的第一条指令开始，单步跟踪BIOS的执行。
 	
 	(gdb) x /2i 0xffff0
 	   0xffff0:     ljmp   $0xf000,$0xe05b
@@ -134,7 +132,7 @@
 	fs             0x0      0
 	gs             0x0      0
 
-2.在初始化位置0x7c00设置实地址断点,测试断点正常
+####2.在初始化位置0x7c00设置实地址断点,测试断点正常
 
 	(gdb) b *0x7c00
 	Breakpoint 1 at 0x7c00
@@ -144,7 +142,7 @@
 	
 	Breakpoint 1, 0x00007c00 in ?? ()
 
-3.从0x7c00开始跟踪代码运行,将单步跟踪反汇编得到的代码与bootasm.S和 bootblock.asm进行比较
+####3.从0x7c00开始跟踪代码运行,将单步跟踪反汇编得到的代码与bootasm.S和 bootblock.asm进行比较
 
 	(gdb) x /6i $pc
 	=> 0x7c00:      cli    
@@ -168,8 +166,7 @@ boottasm.S 中
 	    movw %ax, %es                                   # -> Extra Segment
 	    movw %ax, %ss                                   # -> Stack Segment
 
-4.自己找一个bootloader或内核中的代码位置，设置断点并进行测试
- <br/>
+####4.自己找一个bootloader或内核中的代码位置，设置断点并进行测试
 
 修改 tools/gdbinit 为
 
@@ -197,7 +194,7 @@ gdb
 
 ##练习3：分析bootloader进入保护模式的过程
 
-为何开启A20，以及如何开启A20
+####为何开启A20，以及如何开启A20
 
 在 boot/bootasm.S 中
 	
@@ -224,7 +221,7 @@ gdb
 循环查看64端口的值，不小于2时向64端口输出0xd1、向60端口输出0xdf
 <br/>
 
-如何初始化GDT表
+####如何初始化GDT表
 
 在 boot/bootasm.S 中
 	
@@ -243,7 +240,7 @@ gdb
 
 对GDT表进行了初始化
 
-如何使能和进入保护模式
+####如何使能和进入保护模式
 
 在 boot/bootasm.S 中
 	
@@ -262,4 +259,49 @@ gdb
 把 cr0 最后一位置为1，然后跳转保护模式代码段
 
 ##练习4：分析bootloader加载ELF格式的OS的过程
+
+####bootloader如何读取硬盘扇区的？
+
+在 boot/bootmain.c 中
+	
+	static void
+	readsect(void *dst, uint32_t secno) {
+	    // wait for disk to be ready
+	    waitdisk();
+	
+	    outb(0x1F2, 1);                         // count = 1
+	    outb(0x1F3, secno & 0xFF);
+	    outb(0x1F4, (secno >> 8) & 0xFF);
+	    outb(0x1F5, (secno >> 16) & 0xFF);
+	    outb(0x1F6, ((secno >> 24) & 0xF) | 0xE0);
+	    outb(0x1F7, 0x20);                      // cmd 0x20 - read sectors
+	
+	    // wait for disk to be ready
+	    waitdisk();
+	
+	    // read a sector
+	    insl(0x1F0, dst, SECTSIZE / 4);
+	}
+
+其中 waitdisk 函数等待磁盘准备好
+
+	static void
+	waitdisk(void) {
+	    while ((inb(0x1F7) & 0xC0) != 0x40)
+	        /* do nothing */;
+	}
+
+之后发出读取扇区的命令，再调用 waitdisk 函数等待磁盘。之后调用 insl 函数把磁盘扇区数据读到指定内存
+
+	static inline void
+	insl(uint32_t port, void *addr, int cnt) {
+	    asm volatile (
+	            "cld;"
+	            "repne; insl;"
+	            : "=D" (addr), "=c" (cnt)
+	            : "d" (port), "0" (addr), "1" (cnt)
+	            : "memory", "cc");
+	}
+
+####bootloader是如何加载ELF格式的OS？
 
