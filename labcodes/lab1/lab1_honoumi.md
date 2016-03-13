@@ -305,3 +305,83 @@ gdb
 
 ####bootloader是如何加载ELF格式的OS？
 
+在 boot/bootmain.c 中
+
+	void
+	bootmain(void) {
+	    // read the 1st page off disk
+	    readseg((uintptr_t)ELFHDR, SECTSIZE * 8, 0);  //读取 elfhdr
+	
+	    // is this a valid ELF?
+	    if (ELFHDR->e_magic != ELF_MAGIC) {   //elfhdr 的 e_magic 不为 ELF_MAGIC 时进入 bad 循环
+	        goto bad;
+	    }
+	
+	    struct proghdr *ph, *eph;
+	
+	    // load each program segment (ignores ph flags)
+	    ph = (struct proghdr *)((uintptr_t)ELFHDR + ELFHDR->e_phoff);
+	    eph = ph + ELFHDR->e_phnum;
+	    for (; ph < eph; ph ++) {
+	        readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);  //加载每一个程序段
+	    }
+	
+	    // call the entry point from the ELF header
+	    // note: does not return
+	    ((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();  //调用入口地址
+	
+	bad:
+	    outw(0x8A00, 0x8A00);
+	    outw(0x8A00, 0x8E00);
+	
+	    /* do nothing */
+	    while (1);
+	}
+
+##练习5：实现函数调用堆栈跟踪函数
+
+	void
+	print_stackframe(void) {
+
+		uint32_t ebp = read_ebp();
+		uint32_t eip = read_eip();
+	
+		int i = 0, j = 0;
+		while(i < STACKFRAME_DEPTH && ebp)	{
+			cprintf("ebp:0x%08x eip:0x%08x args:", ebp, eip);
+			uint32_t* arguments = (uint32_t)ebp + 2;
+	
+			j = 0;
+			while(j < 4)	{
+				cprintf("0x%08x ", arguments[j]);
+				j++;
+			}
+	
+			cprintf("\n");
+			print_debuginfo(eip - 1);
+			eip = *(uint32_t*)(ebp + 4);
+			ebp = *(uint32_t*)ebp;
+	
+			i++;
+		}
+	}
+
+输出为
+
+	ebp:0x00007b08 eip:0x001009a6 args:0x0c9c0000 0x00940010 0x00000001 0x7b380000 
+	    kern/debug/kdebug.c:306: print_stackframe+21
+	ebp:0x00007b18 eip:0x00100c9c args:0x00920000 0x00000010 0x00000000 0x00000000 
+	    kern/debug/kmonitor.c:125: mon_backtrace+10
+	ebp:0x00007b38 eip:0x00100092 args:0x00bb0000 0x00000010 0x7b600000 0x00000000 
+	    kern/init/init.c:48: grade_backtrace2+33
+	ebp:0x00007b58 eip:0x001000bb args:0x00d90000 0x00000010 0x00000000 0x7b84ffff 
+	    kern/init/init.c:53: grade_backtrace1+38
+	ebp:0x00007b78 eip:0x001000d9 args:0x00fe0000 0x00000010 0x00000000 0x00000010 
+	    kern/init/init.c:58: grade_backtrace0+23
+	ebp:0x00007b98 eip:0x001000fe args:0x00550000 0x32fc0010 0x32e00010 0x130a0010 
+	    kern/init/init.c:63: grade_backtrace+34
+	ebp:0x00007bc8 eip:0x00100055 args:0x7d680000 0x00000000 0x00000000 0x00000000 
+	    kern/init/init.c:28: kern_init+84
+	ebp:0x00007bf8 eip:0x00007d68 args:0x7c4f0000 0xfcfa0000 0xd88ec031 0xd08ec08e 
+	    <unknow>: -- 0x00007d67 --
+
