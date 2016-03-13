@@ -340,6 +340,12 @@ gdb
 
 ##练习5：实现函数调用堆栈跟踪函数
 
+make 的时候
+
+	kern/debug/kdebug.c:328:2: error: ‘for’ loop initial declarations are only allowed in C99 mode
+
+所以没有用for
+
 	void
 	print_stackframe(void) {
 
@@ -347,9 +353,9 @@ gdb
 		uint32_t eip = read_eip();
 	
 		int i = 0, j = 0;
-		while(i < STACKFRAME_DEPTH && ebp)	{
+		while(i < STACKFRAME_DEPTH && ebp)  // ebp 为0时表明程序返回到了最开始初始化的函数	{
 			cprintf("ebp:0x%08x eip:0x%08x args:", ebp, eip);
-			uint32_t* arguments = (uint32_t)ebp + 2;
+			uint32_t* arguments = (uint32_t)ebp + 2; // 获得参数地址
 	
 			j = 0;
 			while(j < 4)	{
@@ -360,11 +366,13 @@ gdb
 			cprintf("\n");
 			print_debuginfo(eip - 1);
 			eip = *(uint32_t*)(ebp + 4);
-			ebp = *(uint32_t*)ebp;
+			ebp = *(uint32_t*)ebp;  // 更新 eip, ebp
 	
 			i++;
 		}
 	}
+
+
 
 输出为
 
@@ -385,3 +393,34 @@ gdb
 	ebp:0x00007bf8 eip:0x00007d68 args:0x7c4f0000 0xfcfa0000 0xd88ec031 0xd08ec08e 
 	    <unknow>: -- 0x00007d67 --
 
+其中最后一行对应 bootmain.c 中的 bootmain 函数，bootmain中ebp为0x7bf8。返回地址eip为0x0000d64，之后四个是参数args:0x7c4f0000 0xfcfa0000 0xd88ec031 0xd08ec08e
+
+##练习6：完善中断初始化和处理
+
+####1. 中断描述符表（也可简称为保护模式下的中断向量表）中一个表项占多少字节？其中哪几位代表中断处理代码的入口？
+一个表项占8个字节，其中第0-15，48-63位代表中断处理代码的入口
+
+####2. 请编程完善kern/trap/trap.c中对中断向量表进行初始化的函数idt_init。
+
+	void
+	idt_init(void) {
+
+		extern uintptr_t __vectors[];
+		int i = 0;
+		while(i < 256)	{
+			SETGATE(idt[i], 0 ,GD_KTEXT ,__vectors[i], DPL_KERNEL);
+			i++;
+		}
+		SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
+		lidt(&idt_pd);
+	}
+
+####3. 请编程完善trap.c中的中断处理函数trap，在对时钟中断进行处理的部分填写trap函数中处理时钟中断的部分，使操作系统每遇到100次时钟中断后，调用print_ticks子程序，向屏幕上打印一行文字”100 ticks”
+
+	    case IRQ_OFFSET + IRQ_TIMER:
+
+	    	ticks = (ticks + 1) % TICK_NUM;
+			if(ticks == 0)
+				print_ticks();
+	
+	        break;
