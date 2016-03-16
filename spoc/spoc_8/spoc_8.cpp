@@ -42,22 +42,27 @@ void translate(int va)
 	int pte_idx = (va >> 5) & 0b11111;
 	int pte_ctx = mem[pde_fn][pte_idx];
 
-	int pte_valid = pte_idx >> 7;
+	int pte_valid = pte_ctx >> 7;
 	int pte_fn = pte_ctx & 0b1111111;
 	cout << "    --> pte index:0x" << hex << pte_idx
 		<< " pte contents:(valid " << pte_valid
 		<< ", pfn 0x" << hex << pte_fn << ")" << endl;
 
+	if (pte_valid == 0 && pte_ctx == 0x7f) {
+		cout << "       --> Fault (page table entry not valid)" << endl;
+		return;
+	}
+
 	int pa = (pte_fn << 5) + (va & 0b11111);
 	if (pte_valid == 1) {
 		int value = ((int*)mem)[pa];
 		cout << "      --> Translates to Physical Address 0x" << hex << pa
-			<< " --> Value:" << value << endl;
+			<< " --> Value: " << value << endl;
 	}
 	else {
 		int value = ((int*)disk)[pa];
 		cout << "      --> To Disk Sector Address 0x" << hex << pa
-			<< " --> Value:" << value << endl;
+			<< " --> Value: " << value << endl;
 	}
 }
 
@@ -71,7 +76,6 @@ int main(int argc, char *argv[])
 	cin >> hex >> va;
 
 	translate(va);
-
 
 	return 0;
 }
