@@ -57,6 +57,7 @@ idt_init(void) {
 	lidt(&idt_pd);
 }
 
+
 static const char *
 trapname(int trapno) {
     static const char * const excnames[] = {
@@ -159,7 +160,7 @@ trap_dispatch(struct trapframe *tf) {
 		ticks = (ticks + 1) % TICK_NUM;
 		if (ticks == 0)
 			print_ticks();
-        break;
+		break;
     case IRQ_OFFSET + IRQ_COM1:
         c = cons_getc();
         cprintf("serial [%03d] %c\n", c, c);

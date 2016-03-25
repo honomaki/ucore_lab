@@ -53,7 +53,7 @@ CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 &
 else
 HOSTCC		:= clang
 HOSTCFLAGS	:= -g -Wall -O2
-CC		:= clang
+CC		:= $(GCCPREFIX)clang
 CFLAGS	:= -fno-builtin -Wall -g -m32 -mno-sse -nostdinc $(DEFS)
 CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 endif
@@ -224,32 +224,32 @@ endif
 
 # files for grade script
 
-TARGETS: $(TARGETS)
+targets: $(TARGETS)
 
-.DEFAULT_GOAL := TARGETS
+.DEFAULT_GOAL := targets
 
 QEMUOPTS = -hda $(UCOREIMG)
 
-.PHONY: qemu qemu-nox debug debug-nox
-qemu-mon: $(UCOREIMG)
-	$(V)$(QEMU)  -no-reboot -monitor stdio $(QEMUOPTS) -serial null
-qemu: $(UCOREIMG)
-	$(V)$(QEMU)  -no-reboot -parallel stdio $(QEMUOPTS) -serial null
+.PHONY: qemu qemu-nox gdb debug debug-mon debug-nox
+qemu-mon: targets
+	$(V)$(QEMU) -monitor stdio $(QEMUOPTS) -serial null
+qemu: targets
+	$(V)$(QEMU) -parallel stdio $(QEMUOPTS) -serial null
 
 qemu-nox: targets
-	$(V)$(QEMU)  -no-reboot -serial mon:stdio $(QEMUOPTS) -nographic
+	$(V)$(QEMU) -serial mon:stdio $(QEMUOPTS) -nographic
 
-TERMINAL := gnome-terminal
+gdb:
+	$(V)$(GDB) -q -x tools/gdbinit
 
-debug: $(UCOREIMG)
-	$(V)$(QEMU) -S -s -parallel stdio $(QEMUOPTS) -serial null &
-	$(V)sleep 2
-	$(V)$(TERMINAL) -e "$(GDB) -q -x tools/gdbinit"
+debug: targets
+	$(V)$(QEMU) -S -s -parallel stdio $(QEMUOPTS) -serial null
 
-debug-nox: $(UCOREIMG)
-	$(V)$(QEMU) -S -s -serial mon:stdio $(QEMUOPTS) -nographic &
-	$(V)sleep 2
-	$(V)$(TERMINAL) -e "$(GDB) -q -x tools/gdbinit"
+debug-mon: targets
+	$(V)$(QEMU) -S -s -monitor stdio $(QEMUOPTS) -parallel null -serial null
+
+debug-nox: targets
+	$(V)$(QEMU) -S -s -serial mon:stdio $(QEMUOPTS) -nographic
 
 .PHONY: grade touch
 
