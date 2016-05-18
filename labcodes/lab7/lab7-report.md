@@ -56,4 +56,24 @@ static __noinline uint32_t __down(semaphore_t *sem, uint32_t wait_state) {
 
 ## 练习2: 完成内核级条件变量和基于内核级条件变量的哲学家就餐问题
 
+对于哲学家就餐问题。申请叉子，如果条件本人相邻的人都不在吃不满足，那么等待。 释放叉子时，先把自己设置为不在吃的状态，然后唤醒邻居。进入前获得管程的互斥锁，退出时释放互斥锁，或者从队列中选择唤醒等待管程的线程。
 
+```c
+typedef struct condvar{
+    semaphore_t sem;        // the sem semaphore  is used to down the waiting proc, and the signaling proc should up the waiting proc
+    int count;              // the number of waiters on condvar
+    monitor_t * owner;      // the owner(monitor) of this condvar
+} condvar_t;
+
+typedef struct monitor{
+    semaphore_t mutex;      // the mutex lock for going into the routines in monitor, should be initialized to 1
+    semaphore_t next;       // the next semaphore is used to down the signaling proc itself, and the other OR wakeuped waiting proc should wake up the sleeped signaling proc.
+    int next_count;         // the number of of sleeped signaling proc
+    condvar_t *cv;          // the condvars in monitor
+} monitor_t;
+```
+管程中mutex表示进入管程的信号量，next信号量表示等待使用管程的线程，nextcount表示等待使用管程的线程数，cv表示管理条件
+
+调用cond_signal，此时该条件成立，唤醒等待该条件的线程。优先让等待条件的线程运行，并把当前线程放入等待队列，重新调度相应线程
+
+调用cond_wait，此时需要等待，所以先让出管程的控制权，并唤醒等待管程的线程，或者释放管程锁。被唤醒之后直接退出，此时条件满足
