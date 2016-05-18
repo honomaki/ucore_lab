@@ -1,15 +1,18 @@
-# 实验七：同步互斥
-<br/>
-## 练习1: 理解内核级信号量的实现和基于内核级信号量的哲学家就餐问题
-```c
-typedef struct {
-    int value;
-    wait_queue_t wait_queue;
-} semaphore_t;
-```
-用 value 表示当前信号量值，用 waitqueue 指向等待队列
+#include <defs.h>
+#include <wait.h>
+#include <atomic.h>
+#include <kmalloc.h>
+#include <sem.h>
+#include <proc.h>
+#include <sync.h>
+#include <assert.h>
 
-```c
+void
+sem_init(semaphore_t *sem, int value) {
+    sem->value = value;
+    wait_queue_init(&(sem->wait_queue));
+}
+
 static __noinline void __up(semaphore_t *sem, uint32_t wait_state) {
     bool intr_flag;
     local_intr_save(intr_flag);
@@ -25,9 +28,7 @@ static __noinline void __up(semaphore_t *sem, uint32_t wait_state) {
     }
     local_intr_restore(intr_flag);
 }
-```
-释放资源时调用 up 函数，调用__up。 若等待队列为空，value将直接加一。 若不为空，则唤醒一个等待队列中的线程
-```c
+
 static __noinline uint32_t __down(semaphore_t *sem, uint32_t wait_state) {
     bool intr_flag;
     local_intr_save(intr_flag);
@@ -51,9 +52,26 @@ static __noinline uint32_t __down(semaphore_t *sem, uint32_t wait_state) {
     }
     return 0;
 }
-```
-请求资源时调用 down 函数，调用 __down。 若 value > 0，则直接获得资源，并把value减一。 否则把当前线程加入到等待队列中，调用 schedule 函数调度其它线程
 
-## 练习2: 完成内核级条件变量和基于内核级条件变量的哲学家就餐问题
+void
+up(semaphore_t *sem) {
+    __up(sem, WT_KSEM);
+}
 
+void
+down(semaphore_t *sem) {
+    uint32_t flags = __down(sem, WT_KSEM);
+    assert(flags == 0);
+}
+
+bool
+try_down(semaphore_t *sem) {
+    bool intr_flag, ret = 0;
+    local_intr_save(intr_flag);
+    if (sem->value > 0) {
+        sem->value --, ret = 1;
+    }
+    local_intr_restore(intr_flag);
+    return ret;
+}
 
